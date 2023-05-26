@@ -174,7 +174,11 @@ func (config *Config) dbConnect(tId int, pw string) *sql.DB {
 	if err != nil {
 		return nil
 	}
-	connector.SetTimeout(time.Duration(config.Timeout) * time.Second)
+	err = connector.SetTimeout(time.Duration(config.Timeout) * time.Second)
+	if err != nil {
+		log.Errorf("Failed to set timeout on connection to tenant %s", config.Tenants[tId].Name)
+		return nil
+	}
 
 	db := sql.OpenDB(connector)
 	db.SetMaxOpenConns(25)

@@ -139,7 +139,12 @@ func (config *Config) Web() error {
 
 	// close tenant connections at the end
 	for i := range config.Tenants {
-		defer config.Tenants[i].conn.Close()
+		defer func(conn *sql.DB) {
+			err := conn.Close()
+			if err != nil {
+				log.Error("Failed to close connection")
+			}
+		}(config.Tenants[i].conn)
 	}
 
 	stats := func() []MetricData {
@@ -180,9 +185,9 @@ func (config *Config) Web() error {
 	return nil
 }
 
-// RootHandler - message, when calling mithout /metrics
+// RootHandler - message, when calling without /metrics
 func RootHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "prometheus hana_sql_exporter: please call <host>:<port>/metrics")
+	_, _ = fmt.Fprintf(w, "prometheus hana_sql_exporter: please call <host>:<port>/metrics")
 }
 
 // CollectMetrics - collecting all metrics and fetch the results
@@ -232,7 +237,9 @@ func (config *Config) CollectMetric(mPos int) []MetricRecord {
 	tenantCnt := len(config.Tenants)
 	metricC := make(chan []MetricRecord, tenantCnt)
 
-	for tPos := range config.Tenants {
+	for tPos, t := range config.Tenants {
+
+		log.Debugf("Collecting metrics for tenant %s", t.Name)
 
 		go func(tPos int) {
 
@@ -271,6 +278,12 @@ func (config *Config) GetMetricData(mPos, tPos int) []MetricRecord {
 			"error":  err,
 		}).Error("Can't get sql result for metric")
 		return nil
+	} else {
+		log.WithFields(log.Fields{
+			"metric": config.Metrics[mPos].Name,
+			"tenant": config.Tenants[tPos].Name,
+			"error":  err,
+		}).Info("Got sql result for metric")
 	}
 	defer rows.Close()
 
