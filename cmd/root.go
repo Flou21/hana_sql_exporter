@@ -136,6 +136,7 @@ func exit(msg string, err error) {
 // prepare, establish, check and return connection to hana db
 func (config *Config) getConnection(tId int, secretMap internal.Secret) *sql.DB {
 
+	log.Info("Connecting to tenant: ", config.Tenants[tId].Name)
 	pw, err := GetPassword(secretMap, config.Tenants[tId].Name)
 	if err != nil {
 		log.WithFields(log.Fields{
@@ -158,6 +159,8 @@ func (config *Config) getConnection(tId int, secretMap internal.Secret) *sql.DB 
 		}).Error("Cannot ping tenant. Perhaps wrong password?")
 		return nil
 	}
+
+	log.Info("Connected to tenant: ", config.Tenants[tId].Name)
 	return db
 }
 

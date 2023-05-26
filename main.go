@@ -15,6 +15,8 @@
 package main
 
 import (
+	"os"
+
 	"github.com/ulranh/hana_sql_exporter/cmd"
 
 	log "github.com/sirupsen/logrus"
@@ -29,5 +31,23 @@ func main() {
 		TimestampFormat: "02-01-2006 15:04:05",
 	})
 
+	if debugLogsEnabled() {
+		log.SetLevel(log.DebugLevel)
+		log.Info("Debug logs enabled")
+	} else {
+		log.SetLevel(log.InfoLevel)
+		log.Info("Debug logs disabled")
+	}
+
 	cmd.Execute()
+}
+
+func debugLogsEnabled() bool {
+	debugEnabled := os.Getenv("DEBUG_ENABLED")
+
+	if debugEnabled == "true" {
+		return true
+	}
+
+	return false
 }

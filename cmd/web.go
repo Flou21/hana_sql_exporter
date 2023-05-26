@@ -177,6 +177,8 @@ func (config *Config) Web() error {
 	if err != nil {
 		return errors.Wrap(err, "web(ListenAndServe)")
 	}
+
+	log.Info("web server stopped")
 	return nil
 }
 
@@ -192,11 +194,14 @@ func (config *Config) CollectMetrics() []MetricData {
 	metricCnt := len(config.Metrics)
 	metricsC := make(chan MetricData, metricCnt)
 
+	log.Infof("Collecting %d different metrics for all tenants", metricCnt)
+
 	for mPos := range config.Metrics {
 
 		wg.Add(1)
 		go func(mPos int) {
 
+			log.Debugf("Collecting metric number %d: %s for all tenants", mPos, config.Metrics[mPos].Name)
 			defer wg.Done()
 			metricsC <- MetricData{
 				Name:       config.Metrics[mPos].Name,
@@ -219,6 +224,7 @@ func (config *Config) CollectMetrics() []MetricData {
 		}
 	}
 
+	log.Debug("Collecting metrics finished")
 	return metricsData
 }
 
@@ -233,10 +239,11 @@ func (config *Config) CollectMetric(mPos int) []MetricRecord {
 	metricC := make(chan []MetricRecord, tenantCnt)
 
 	for tPos := range config.Tenants {
-
 		go func(tPos int) {
-
-			metricC <- config.DataFunc(mPos, tPos)
+			log.Debugf("Collecting metric %d for tenant with index %d, %s", mPos, tPos, config.Tenants[tPos].Name)
+			m := config.DataFunc(mPos, tPos)
+			log.Debugf("Collecting metric %d for tenant %d finished, found %d metrics", mPos, tPos, len(m))
+			metricC <- m
 		}(tPos)
 	}
 
@@ -249,6 +256,7 @@ func (config *Config) CollectMetric(mPos int) []MetricRecord {
 				sData = append(sData, mc...)
 			}
 		case <-ctx.Done():
+			log.Warnf("Timeout collecting metric %d returning everything that is here", mPos)
 			return sData
 		}
 	}
@@ -260,6 +268,7 @@ func (config *Config) GetMetricData(mPos, tPos int) []MetricRecord {
 
 	sel := config.GetSelection(mPos, tPos)
 	if "" == sel {
+		log.Warnf("No selection for metric %d for tenant %d: %s", mPos, tPos, config.Tenants[tPos].Name)
 		return nil
 	}
 
@@ -277,6 +286,11 @@ func (config *Config) GetMetricData(mPos, tPos int) []MetricRecord {
 	md, err := config.Tenants[tPos].GetMetricRows(rows)
 	// if err = rows.Err(); err != nil {
 	if err != nil {
+		log.WithFields(log.Fields{
+			"metric": config.Metrics[mPos].Name,
+			"tenant": config.Tenants[tPos].Name,
+			"error":  err,
+		}).Error("Can't get sql result for metric")
 		return nil
 	}
 	return md
@@ -420,6 +434,8 @@ func (config *Config) prepare() ([]TenantInfo, error) {
 // get tenant usage and hana-user schema information
 func (config *Config) collectRemainingTenantInfos(tPos int) error {
 
+	log.Debugf("collectRemainingTenantInfos(%d)", tPos)
+
 	// get tenant usage information
 	row := config.Tenants[tPos].conn.QueryRow("select usage from sys.m_database")
 	err := row.Scan(&config.Tenants[tPos].Usage)
@@ -445,9 +461,12 @@ func (config *Config) collectRemainingTenantInfos(tPos int) error {
 		}
 		config.Tenants[tPos].Schemas = append(config.Tenants[tPos].Schemas, schema)
 	}
+
 	if err = rows.Err(); err != nil {
 		return errors.Wrap(err, "collectRemainingTenantInfos(rows.Err)")
 	}
+
+	log.Debugf("collectRemainingTenantInfos(%d) - done %s schemas returned", tPos, len(config.Tenants[tPos].Schemas))
 	return nil
 }
 
