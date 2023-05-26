@@ -240,9 +240,7 @@ func (config *Config) CollectMetric(mPos int) []MetricRecord {
 
 	for tPos := range config.Tenants {
 		go func(tPos int) {
-			log.Debugf("Collecting metric %d for tenant with index %d, %s", mPos, tPos, config.Tenants[tPos].Name)
 			m := config.DataFunc(mPos, tPos)
-			log.Debugf("Collecting metric %d for tenant %d finished, found %d metrics", mPos, tPos, len(m))
 			metricC <- m
 		}(tPos)
 	}
