@@ -200,8 +200,6 @@ func (config *Config) CollectMetrics() []MetricData {
 
 		wg.Add(1)
 		go func(mPos int) {
-
-			log.Debugf("Collecting metric number %d: %s for all tenants", mPos, config.Metrics[mPos].Name)
 			defer wg.Done()
 			metricsC <- MetricData{
 				Name:       config.Metrics[mPos].Name,
