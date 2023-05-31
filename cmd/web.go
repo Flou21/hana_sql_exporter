@@ -89,7 +89,7 @@ var webCmd = &cobra.Command{
 
 var (
 	MetricScrapeDuration = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "hana_sql_exporter_scrape_duration_ms",
+		Name: "hdb_sql_exporter_scrape_duration_ms",
 		Help: "Duration of a scrape job of the hana_sql_exporter in ms.",
 	}, []string{"metric", "tenant"})
 )
