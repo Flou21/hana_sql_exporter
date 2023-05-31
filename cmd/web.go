@@ -26,7 +26,6 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -86,13 +85,6 @@ var webCmd = &cobra.Command{
 		}
 	},
 }
-
-var (
-	DurationForFetchingMetricGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "hana_sql_exporter_fetching_duration_ms",
-		Help: "Duration for fetching metrics in ms",
-	}, []string{"tenant", "metric"})
-)
 
 func init() {
 	RootCmd.AddCommand(webCmd)
@@ -236,6 +228,7 @@ func (config *Config) CollectMetrics() []MetricData {
 
 // CollectMetric - collecting one metric for every tenants
 func (config *Config) CollectMetric(mPos int) []MetricRecord {
+
 	// set timeout
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Duration(config.Timeout)*time.Second))
 	defer cancel()
@@ -245,18 +238,8 @@ func (config *Config) CollectMetric(mPos int) []MetricRecord {
 
 	for tPos := range config.Tenants {
 		go func(tPos int) {
-			start := time.Now()
-
 			m := config.DataFunc(mPos, tPos)
 			metricC <- m
-
-			duration := time.Since(start)
-			log.Debugf("Collecting metric %s for tenant %s took %s ms", config.Metrics[mPos].Name, config.Tenants[tPos].Name, duration.Milliseconds())
-
-			DurationForFetchingMetricGauge.
-				WithLabelValues(config.Tenants[tPos].Name, config.Metrics[mPos].Name).
-				Set(float64(duration.Milliseconds()))
-
 		}(tPos)
 	}
 
@@ -269,7 +252,7 @@ func (config *Config) CollectMetric(mPos int) []MetricRecord {
 				sData = append(sData, mc...)
 			}
 		case <-ctx.Done():
-			log.Warnf("Timeout collecting metric %s returning everything that is here", config.Metrics[mPos].Name)
+			log.Warnf("Timeout collecting metric %d returning everything that is here", mPos)
 			return sData
 		}
 	}
